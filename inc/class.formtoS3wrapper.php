@@ -1,5 +1,5 @@
 <?php
-// Clase PHP para subida de archivos directamente a Amazon AWS S3 class.simpleS3wrapper.php (2014-01-15 Javier Fuentes)
+// Clase PHP para subida de archivos directamente a Amazon AWS S3 a traves de HTTP POST (formularios), class.simpleS3wrapper.php (2014-01-15 Javier Fuentes)
 
 class formtoS3wrapper
 {
@@ -27,6 +27,8 @@ class formtoS3wrapper
 
     private function doBasicChecking()
     {
+        if (empty($this->bucket)) throw new Exception('bucket required');
+
         if (!empty($this->uploadpath))
         {
             if (stristr($this->objectkey, $this->uploadpath) === false) throw new Exception('uploadpath must be part of objectkey');
@@ -85,6 +87,22 @@ class formtoS3wrapper
         )));
     }
 
+    // Devuelve el action del FORM
+    public function getFormAction()
+    {
+        $this->doBasicChecking();
+
+        return '//'.$this->getS3Host();
+    }
+
+    // Devuelve el host de Amazon Web Services S3 a raiz del bucket definido en el objeto
+    public function getS3Host()
+    {
+        $this->doBasicChecking();
+
+        return $this->bucket.'.s3.amazonaws.com';
+    }
+
     public function getSignature()
     {
         return base64_encode($this->hash_hmac('sha1', $this->getPolicy(), $this->secret, true));
@@ -104,5 +122,11 @@ class formtoS3wrapper
         if ($opts['objectkey']) $this->objectkey = $opts['objectkey'];
 
         return true;
+    }
+
+    // Crea una ruta para subir el contenido dependiendo de un Id único, permite especificar pre y post ruta.
+    public function getPathForId($startsWith = '', $endsWith = '', $id = null)
+    {
+        return (!empty($startsWith) ? $startsWith : '').($id ? substr(str_pad($id, 2, '0', STR_PAD_LEFT),-2,2).'/' : '').(!empty($endsWith) ? $endsWith : '');
     }
 }
