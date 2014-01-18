@@ -25,6 +25,9 @@ class formtoS3wrapper
     private $success_action_status = '201';
     private $success_action_redirect = '';
 
+    // Soporta input extras en el form. ADVERTENCIA: Todos los inputs posteriores a file son desechados por Amazon
+    private $extrainputfields = array();
+
     private function doBasicChecking()
     {
         if (empty($this->bucket)) throw new Exception('bucket required');
@@ -73,7 +76,7 @@ class formtoS3wrapper
     public function getPolicy(){
         $this->doBasicChecking();
 
-        return base64_encode(json_encode(array(
+        $policy = array(
             // ISO 8601 - date('c'); generates uncompatible date, so better do it manually
             'expiration' => date('Y-m-d\TH:i:s.000\Z', strtotime($this->URLexpiration)),
             'conditions' => array(
@@ -84,7 +87,17 @@ class formtoS3wrapper
                 array('content-length-range', 0, $this->content_length_range),
                 array('starts-with', '$key', $this->uploadpath)
             )
-        )));
+        );
+
+        if (!empty($this->extrainputfields))
+        {
+            foreach ($this->extrainputfields as $x)
+            {
+                $policy['conditions'][] = array('starts-with', '$'.$x, '');
+            }
+        }
+
+        return base64_encode(json_encode($policy));
     }
 
     // Devuelve el action del FORM
@@ -121,11 +134,14 @@ class formtoS3wrapper
         if ($opts['urlexpiration']) $this->URLexpiration = $opts['urlexpiration'];
         if ($opts['objectkey']) $this->objectkey = $opts['objectkey'];
 
+        // Extra input fields to match policy
+        if ($opts['extrainputfields']) $this->extrainputfields = $opts['extrainputfields'];
+
         return true;
     }
 
     // Crea una ruta para subir el contenido dependiendo de un Id único, permite especificar pre y post ruta.
-    public function getPathForId($startsWith = '', $endsWith = '', $id = null)
+    public function getPathForId($startsWith = '', $id = null, $endsWith = '')
     {
         return (!empty($startsWith) ? $startsWith : '').($id ? substr(str_pad($id, 2, '0', STR_PAD_LEFT),-2,2).'/' : '').(!empty($endsWith) ? $endsWith : '');
     }
